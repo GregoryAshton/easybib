@@ -80,6 +80,177 @@ class TestAdsApiKeyOverride:
         assert call_args[0][1] == "flag-key"
 
 
+class TestConfigFile:
+    def test_config_sets_defaults(self, tmp_path, capsys):
+        """Config file values are used when no CLI flags are given."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text(
+            "[easybib]\noutput = custom.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+        )
+        with (
+            patch(
+                "sys.argv",
+                ["easybib", str(tex), "--config", str(cfg), "--list-keys"],
+            ),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "Author:2020abc" in captured.out
+
+    def test_config_values_applied(self, tmp_path):
+        """Config file values feed into parsed args."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text(
+            "[easybib]\noutput = custom.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+        )
+        with (
+            patch(
+                "sys.argv",
+                ["easybib", str(tex), "--config", str(cfg), "--list-keys"],
+            ),
+            patch("easybib.cli.extract_cite_keys", return_value=(set(), [])),
+        ):
+            # Access the parsed args by patching parse_args
+            import easybib.cli as cli_mod
+
+            original_parse = cli_mod.argparse.ArgumentParser.parse_args
+
+            captured_args = {}
+
+            def spy_parse(self_parser, *a, **kw):
+                result = original_parse(self_parser, *a, **kw)
+                captured_args.update(vars(result))
+                return result
+
+            with patch.object(
+                cli_mod.argparse.ArgumentParser, "parse_args", spy_parse
+            ):
+                main()
+
+            assert captured_args["output"] == "custom.bib"
+            assert captured_args["max_authors"] == 5
+            assert captured_args["source"] == "inspire"
+            assert captured_args["ads_api_key"] == "cfg-key"
+
+    def test_cli_flags_override_config(self, tmp_path):
+        """CLI flags take priority over config file values."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text(
+            "[easybib]\noutput = config.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+        )
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "easybib",
+                    str(tex),
+                    "--config",
+                    str(cfg),
+                    "--list-keys",
+                    "-o",
+                    "cli.bib",
+                    "--max-authors",
+                    "10",
+                    "-s",
+                    "ads",
+                    "--ads-api-key",
+                    "cli-key",
+                ],
+            ),
+            patch("easybib.cli.extract_cite_keys", return_value=(set(), [])),
+        ):
+            import easybib.cli as cli_mod
+
+            original_parse = cli_mod.argparse.ArgumentParser.parse_args
+            captured_args = {}
+
+            def spy_parse(self_parser, *a, **kw):
+                result = original_parse(self_parser, *a, **kw)
+                captured_args.update(vars(result))
+                return result
+
+            with patch.object(
+                cli_mod.argparse.ArgumentParser, "parse_args", spy_parse
+            ):
+                main()
+
+            assert captured_args["output"] == "cli.bib"
+            assert captured_args["max_authors"] == 10
+            assert captured_args["source"] == "ads"
+            assert captured_args["ads_api_key"] == "cli-key"
+
+    def test_missing_config_silently_ignored(self, tmp_path, capsys):
+        """A nonexistent config file does not cause an error."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        with patch(
+            "sys.argv",
+            [
+                "easybib",
+                str(tex),
+                "--config",
+                str(tmp_path / "nonexistent.config"),
+                "--list-keys",
+            ],
+        ):
+            result = main()
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Author:2020abc" in captured.out
+
+    def test_custom_config_path(self, tmp_path, capsys):
+        """--config flag points to a custom path."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        custom_dir = tmp_path / "custom"
+        custom_dir.mkdir()
+        cfg = custom_dir / "my.config"
+        cfg.write_text("[easybib]\nsource = inspire\n")
+        with (
+            patch(
+                "sys.argv",
+                ["easybib", str(tex), "--config", str(cfg), "--list-keys"],
+            ),
+        ):
+            result = main()
+        assert result == 0
+
+    def test_config_ads_api_key_used_for_lookup(self, tmp_path):
+        """ads-api-key from config feeds into the API key chain."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text("[easybib]\nads-api-key = config-api-key\n")
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "easybib",
+                    str(tex),
+                    "--config",
+                    str(cfg),
+                    "-o",
+                    str(tmp_path / "out.bib"),
+                ],
+            ),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex") as mock_fetch,
+        ):
+            mock_fetch.return_value = (
+                "@article{Author:2020abc,\n  title={Test},\n  author={Doe, J.},\n}",
+                "ADS",
+            )
+            main()
+        call_args = mock_fetch.call_args
+        assert call_args[0][1] == "config-api-key"
+
+
 class TestFileVsDirectory:
     def test_single_file(self, tmp_path, capsys):
         tex = tmp_path / "paper.tex"

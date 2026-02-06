@@ -1,5 +1,6 @@
 """Command-line interface for easybib."""
 
+import configparser
 import os
 import argparse
 from pathlib import Path
@@ -14,7 +15,40 @@ from easybib.core import (
 )
 
 
+def load_config(config_path):
+    """Read an INI config file and return a dict from the [easybib] section."""
+    path = Path(config_path).expanduser()
+    if not path.is_file():
+        return {}
+    config = configparser.ConfigParser()
+    config.read(path)
+    if "easybib" not in config:
+        return {}
+    return dict(config["easybib"])
+
+
 def main():
+    # First pass: extract --config so we know which config file to load
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument(
+        "--config",
+        default="~/.easybib.config",
+        help="Path to config file (default: ~/.easybib.config)",
+    )
+    pre_args, _ = pre_parser.parse_known_args()
+
+    # Load config and build defaults
+    cfg = load_config(pre_args.config)
+    config_defaults = {}
+    if "output" in cfg:
+        config_defaults["output"] = cfg["output"]
+    if "max-authors" in cfg:
+        config_defaults["max_authors"] = int(cfg["max-authors"])
+    if "source" in cfg:
+        config_defaults["source"] = cfg["source"]
+    if "ads-api-key" in cfg:
+        config_defaults["ads_api_key"] = cfg["ads-api-key"]
+
     parser = argparse.ArgumentParser(
         description="Extract citations and download BibTeX from NASA/ADS"
     )
@@ -22,6 +56,11 @@ def main():
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument("path", help="LaTeX file or directory containing LaTeX files")
+    parser.add_argument(
+        "--config",
+        default="~/.easybib.config",
+        help="Path to config file (default: ~/.easybib.config)",
+    )
     parser.add_argument(
         "-o", "--output", default="references.bib", help="Output BibTeX file (existing entries are retained)"
     )
@@ -54,6 +93,11 @@ def main():
         "--ads-api-key",
         help="ADS API key (overrides ADS_API_KEY environment variable)",
     )
+
+    # Apply config file defaults (CLI flags will still override)
+    if config_defaults:
+        parser.set_defaults(**config_defaults)
+
     args = parser.parse_args()
 
     # Collect all citation keys
