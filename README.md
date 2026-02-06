@@ -27,7 +27,7 @@ Pass a directory to scan all `.tex` files recursively, or a single `.tex` file. 
 | Flag | Description |
 |------|-------------|
 | `-o`, `--output` | Output BibTeX file (default: `references.bib`) |
-| `-s`, `--source` | Preferred source: `ads` (default), `inspire`, or `auto` |
+| `-s`, `--preferred-source` | Preferred source: `ads` (default), `inspire`, or `auto` |
 | `-a`, `--max-authors` | Truncate author lists (default: 3, use 0 for no limit) |
 | `-l`, `--list-keys` | List found citation keys and exit (no fetching) |
 | `--fresh` | Ignore existing output file and start from scratch |
@@ -38,7 +38,7 @@ Pass a directory to scan all `.tex` files recursively, or a single `.tex` file. 
 
 ```bash
 # Scan a directory
-easybib ./paper -s inspire
+easybib ./paper --preferred-source inspire
 
 # Scan a single file
 easybib paper.tex
@@ -61,7 +61,7 @@ You can create a config file at `~/.easybib.config` to set persistent defaults, 
 [easybib]
 output = references.bib
 max-authors = 3
-source = ads
+preferred-source = ads
 ads-api-key = your-key-here
 ```
 
@@ -72,6 +72,14 @@ To use a config file at a different location:
 ```bash
 easybib ./paper --config /path/to/my.config
 ```
+
+### Source selection
+
+The `--preferred-source` flag controls where BibTeX entries are fetched from. The source determines which service provides the BibTeX data, regardless of the key format used in your `.tex` files.
+
+- **`ads`** (default) — Fetches BibTeX from ADS. If you use an INSPIRE-style key (e.g. `Author:2020abc`), easybib will cross-reference it via INSPIRE to find the corresponding ADS record, then pull the BibTeX from ADS. Falls back to INSPIRE if ADS lookup fails.
+- **`inspire`** — Fetches BibTeX from INSPIRE. Falls back to ADS if the INSPIRE lookup fails. Does not require an ADS API key unless the fallback is triggered.
+- **`auto`** — Chooses the source based on the key format: ADS bibcodes (e.g. `2016PhRvL.116f1102A`) are fetched from ADS, while INSPIRE-style keys are fetched from INSPIRE. Falls back to the other source if the preferred one fails.
 
 ### ADS API key
 

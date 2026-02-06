@@ -35,8 +35,9 @@ class TestMissingApiKey:
     def test_error_without_api_key(self, tmp_path, capsys):
         tex = tmp_path / "test.tex"
         tex.write_text(r"\cite{Author:2020abc}")
+        no_config = str(tmp_path / "nonexistent.config")
         with (
-            patch("sys.argv", ["easybib", str(tex)]),
+            patch("sys.argv", ["easybib", str(tex), "--config", no_config]),
             patch.dict("os.environ", {}, clear=True),
         ):
             result = main()
@@ -45,11 +46,12 @@ class TestMissingApiKey:
         assert "ADS_API_KEY" in captured.out
 
     def test_inspire_source_no_api_key_ok(self, tmp_path, capsys):
-        """Using --source inspire should not require an ADS API key."""
+        """Using --preferred-source inspire should not require an ADS API key."""
         tex = tmp_path / "test.tex"
         tex.write_text(r"\cite{Author:2020abc}")
+        no_config = str(tmp_path / "nonexistent.config")
         with (
-            patch("sys.argv", ["easybib", str(tex), "--source", "inspire"]),
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config]),
             patch.dict("os.environ", {}, clear=True),
             patch("easybib.cli.fetch_bibtex", return_value=(None, None)),
         ):
@@ -87,7 +89,7 @@ class TestConfigFile:
         tex.write_text(r"\cite{Author:2020abc}")
         cfg = tmp_path / "test.config"
         cfg.write_text(
-            "[easybib]\noutput = custom.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+            "[easybib]\noutput = custom.bib\nmax-authors = 5\npreferred-source = inspire\nads-api-key = cfg-key\n"
         )
         with (
             patch(
@@ -105,7 +107,7 @@ class TestConfigFile:
         tex.write_text(r"\cite{Author:2020abc}")
         cfg = tmp_path / "test.config"
         cfg.write_text(
-            "[easybib]\noutput = custom.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+            "[easybib]\noutput = custom.bib\nmax-authors = 5\npreferred-source = inspire\nads-api-key = cfg-key\n"
         )
         with (
             patch(
@@ -133,7 +135,7 @@ class TestConfigFile:
 
             assert captured_args["output"] == "custom.bib"
             assert captured_args["max_authors"] == 5
-            assert captured_args["source"] == "inspire"
+            assert captured_args["preferred_source"] == "inspire"
             assert captured_args["ads_api_key"] == "cfg-key"
 
     def test_cli_flags_override_config(self, tmp_path):
@@ -142,7 +144,7 @@ class TestConfigFile:
         tex.write_text(r"\cite{Author:2020abc}")
         cfg = tmp_path / "test.config"
         cfg.write_text(
-            "[easybib]\noutput = config.bib\nmax-authors = 5\nsource = inspire\nads-api-key = cfg-key\n"
+            "[easybib]\noutput = config.bib\nmax-authors = 5\npreferred-source = inspire\nads-api-key = cfg-key\n"
         )
         with (
             patch(
@@ -157,7 +159,7 @@ class TestConfigFile:
                     "cli.bib",
                     "--max-authors",
                     "10",
-                    "-s",
+                    "--preferred-source",
                     "ads",
                     "--ads-api-key",
                     "cli-key",
@@ -182,7 +184,7 @@ class TestConfigFile:
 
             assert captured_args["output"] == "cli.bib"
             assert captured_args["max_authors"] == 10
-            assert captured_args["source"] == "ads"
+            assert captured_args["preferred_source"] == "ads"
             assert captured_args["ads_api_key"] == "cli-key"
 
     def test_missing_config_silently_ignored(self, tmp_path, capsys):
@@ -211,7 +213,7 @@ class TestConfigFile:
         custom_dir = tmp_path / "custom"
         custom_dir.mkdir()
         cfg = custom_dir / "my.config"
-        cfg.write_text("[easybib]\nsource = inspire\n")
+        cfg.write_text("[easybib]\npreferred-source = inspire\n")
         with (
             patch(
                 "sys.argv",

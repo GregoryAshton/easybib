@@ -44,8 +44,8 @@ def main():
         config_defaults["output"] = cfg["output"]
     if "max-authors" in cfg:
         config_defaults["max_authors"] = int(cfg["max-authors"])
-    if "source" in cfg:
-        config_defaults["source"] = cfg["source"]
+    if "preferred-source" in cfg:
+        config_defaults["preferred_source"] = cfg["preferred-source"]
     if "ads-api-key" in cfg:
         config_defaults["ads_api_key"] = cfg["ads-api-key"]
 
@@ -84,7 +84,7 @@ def main():
     )
     parser.add_argument(
         "-s",
-        "--source",
+        "--preferred-source",
         choices=["ads", "inspire", "auto"],
         default="ads",
         help="Preferred BibTeX source: 'ads' (default), 'inspire', or 'auto' (based on key format)",
@@ -128,12 +128,12 @@ def main():
             print(key)
         return 0
 
-    # Check for ADS API key (not required if using --source inspire)
+    # Check for ADS API key (not required if using --preferred-source inspire)
     api_key = args.ads_api_key or os.getenv("ADS_API_KEY")
-    if not api_key and args.source != "inspire":
+    if not api_key and args.preferred_source != "inspire":
         print("Error: ADS_API_KEY environment variable not set")
         print("Get your API key from: https://ui.adsabs.harvard.edu/user/settings/token")
-        print("(Or use --source inspire to fetch from INSPIRE without an ADS key)")
+        print("(Or use --preferred-source inspire to fetch from INSPIRE without an ADS key)")
         return 1
 
     # Check for existing bib file and determine which keys to fetch
@@ -156,7 +156,7 @@ def main():
     not_found = []
     for key in sorted(keys_to_fetch):
         print(f"Fetching {key}...", end=" ")
-        bibtex, source = fetch_bibtex(key, api_key, args.source)
+        bibtex, source = fetch_bibtex(key, api_key, args.preferred_source)
         if bibtex:
             bibtex = replace_bibtex_key(bibtex, key)
             bibtex = truncate_authors(bibtex, args.max_authors)
