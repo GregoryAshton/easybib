@@ -19,7 +19,7 @@ def main():
     )
     parser.add_argument("directory", help="Directory containing LaTeX files")
     parser.add_argument(
-        "-o", "--output", default="references.bib", help="Output BibTeX file"
+        "-o", "--output", default="references.bib", help="Output BibTeX file (existing entries are retained)"
     )
     parser.add_argument(
         "-a",
