@@ -14,9 +14,10 @@ pip install easybib
 
 ```bash
 easybib /path/to/latex/project
+easybib paper.tex
 ```
 
-This will scan all `.tex` files in the directory, fetch BibTeX entries, and write them to `references.bib`.
+Pass a directory to scan all `.tex` files recursively, or a single `.tex` file. BibTeX entries are fetched and written to `references.bib`.
 
 ### Options
 
@@ -31,8 +32,11 @@ This will scan all `.tex` files in the directory, fetch BibTeX entries, and writ
 ### Examples
 
 ```bash
-# Fetch from INSPIRE (no API key needed)
+# Scan a directory
 easybib ./paper -s inspire
+
+# Scan a single file
+easybib paper.tex
 
 # Use a custom output file
 easybib ./paper -o paper.bib
