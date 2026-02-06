@@ -16,6 +16,9 @@ dependencies = [
     "requests",
 ]
 
+[project.optional-dependencies]
+test = ["pytest"]
+
 [project.urls]
 Homepage = "https://github.com/GregoryAshton/easybib"
 Repository = "https://github.com/GregoryAshton/easybib"
