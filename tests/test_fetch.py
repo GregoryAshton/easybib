@@ -1,8 +1,8 @@
-"""Tests for easybib.core network functions (mocked)."""
+"""Tests for easybib.api network functions (mocked)."""
 
 from unittest.mock import MagicMock, patch
 
-from easybib.core import (
+from easybib.api import (
     fetch_bibtex,
     get_ads_bibtex,
     get_ads_info_from_inspire,
@@ -17,19 +17,19 @@ SAMPLE_BIBTEX = "@article{Author:2020abc,\n  title={Test},\n  author={Doe, J.},\
 
 
 class TestGetInspireBibtex:
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_success(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, text=SAMPLE_BIBTEX)
         result = get_inspire_bibtex("Author:2020abc")
         assert result == SAMPLE_BIBTEX.strip()
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_empty_response(self, mock_get):
         mock_get.return_value = MagicMock(status_code=200, text="   ")
         result = get_inspire_bibtex("Author:2020abc")
         assert result is None
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=404, text="")
         result = get_inspire_bibtex("Author:2020abc")
@@ -40,7 +40,7 @@ class TestGetInspireBibtex:
 
 
 class TestGetAdsBibtex:
-    @patch("easybib.core.requests.post")
+    @patch("easybib.api.requests.post")
     def test_success(self, mock_post):
         mock_post.return_value = MagicMock(
             status_code=200,
@@ -49,7 +49,7 @@ class TestGetAdsBibtex:
         result = get_ads_bibtex("2020ApJ...000..000A", "fake-key")
         assert result == SAMPLE_BIBTEX.strip()
 
-    @patch("easybib.core.requests.post")
+    @patch("easybib.api.requests.post")
     def test_no_records(self, mock_post):
         mock_post.return_value = MagicMock(
             status_code=200,
@@ -58,7 +58,7 @@ class TestGetAdsBibtex:
         result = get_ads_bibtex("2020ApJ...000..000A", "fake-key")
         assert result is None
 
-    @patch("easybib.core.requests.post")
+    @patch("easybib.api.requests.post")
     def test_non_200(self, mock_post):
         mock_post.return_value = MagicMock(status_code=500)
         result = get_ads_bibtex("2020ApJ...000..000A", "fake-key")
@@ -69,7 +69,7 @@ class TestGetAdsBibtex:
 
 
 class TestGetAdsInfoFromInspire:
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_success(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -94,7 +94,7 @@ class TestGetAdsInfoFromInspire:
         assert bibcode == "2020ApJ...000..000A"
         assert arxiv_id == "2001.12345"
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_no_hits(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -104,7 +104,7 @@ class TestGetAdsInfoFromInspire:
         assert bibcode is None
         assert arxiv_id is None
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=500)
         bibcode, arxiv_id = get_ads_info_from_inspire("Author:2020abc")
@@ -116,7 +116,7 @@ class TestGetAdsInfoFromInspire:
 
 
 class TestSearchAdsByArxiv:
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_success(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -129,7 +129,7 @@ class TestSearchAdsByArxiv:
         result = search_ads_by_arxiv("2001.12345", "fake-key")
         assert result == "2020ApJ...000..000A"
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_empty_docs(self, mock_get):
         mock_get.return_value = MagicMock(
             status_code=200,
@@ -138,7 +138,7 @@ class TestSearchAdsByArxiv:
         result = search_ads_by_arxiv("2001.12345", "fake-key")
         assert result is None
 
-    @patch("easybib.core.requests.get")
+    @patch("easybib.api.requests.get")
     def test_non_200(self, mock_get):
         mock_get.return_value = MagicMock(status_code=403)
         result = search_ads_by_arxiv("2001.12345", "fake-key")
@@ -149,9 +149,9 @@ class TestSearchAdsByArxiv:
 
 
 class TestFetchBibtex:
-    @patch("easybib.core.get_inspire_bibtex")
-    @patch("easybib.core.get_ads_bibtex")
-    @patch("easybib.core.get_ads_info_from_inspire")
+    @patch("easybib.api.get_inspire_bibtex")
+    @patch("easybib.api.get_ads_bibtex")
+    @patch("easybib.api.get_ads_info_from_inspire")
     def test_ads_source(self, mock_info, mock_ads, mock_inspire):
         """With source='ads', ADS path is tried (via INSPIRE cross-ref)."""
         mock_info.return_value = ("2020ApJ...000..000A", None)
@@ -160,7 +160,7 @@ class TestFetchBibtex:
         assert result == SAMPLE_BIBTEX
         assert "ADS" in source
 
-    @patch("easybib.core.get_inspire_bibtex")
+    @patch("easybib.api.get_inspire_bibtex")
     def test_inspire_source(self, mock_inspire):
         """With source='inspire', INSPIRE is tried first."""
         mock_inspire.return_value = SAMPLE_BIBTEX
@@ -168,7 +168,7 @@ class TestFetchBibtex:
         assert result == SAMPLE_BIBTEX
         assert "INSPIRE" in source
 
-    @patch("easybib.core.get_inspire_bibtex")
+    @patch("easybib.api.get_inspire_bibtex")
     def test_auto_source_inspire_key(self, mock_inspire):
         """With source='auto' and an INSPIRE-style key, INSPIRE is tried first."""
         mock_inspire.return_value = SAMPLE_BIBTEX
@@ -176,7 +176,7 @@ class TestFetchBibtex:
         assert result == SAMPLE_BIBTEX
         assert "INSPIRE" in source
 
-    @patch("easybib.core.get_ads_bibtex")
+    @patch("easybib.api.get_ads_bibtex")
     def test_auto_source_ads_bibcode(self, mock_ads):
         """With source='auto' and an ADS-style key, ADS is tried first."""
         mock_ads.return_value = SAMPLE_BIBTEX
@@ -186,10 +186,10 @@ class TestFetchBibtex:
         assert result == SAMPLE_BIBTEX
         assert "ADS" in source
 
-    @patch("easybib.core.get_inspire_bibtex")
-    @patch("easybib.core.get_ads_bibtex")
-    @patch("easybib.core.get_ads_info_from_inspire")
-    @patch("easybib.core.search_ads_by_arxiv")
+    @patch("easybib.api.get_inspire_bibtex")
+    @patch("easybib.api.get_ads_bibtex")
+    @patch("easybib.api.get_ads_info_from_inspire")
+    @patch("easybib.api.search_ads_by_arxiv")
     def test_not_found(self, mock_search, mock_info, mock_ads, mock_inspire):
         """When nothing is found, returns (None, None)."""
         mock_inspire.return_value = None

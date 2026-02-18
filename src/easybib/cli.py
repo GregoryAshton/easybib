@@ -6,13 +6,9 @@ import argparse
 from pathlib import Path
 
 from easybib import __version__
-from easybib.core import (
-    extract_cite_keys,
-    extract_existing_bib_keys,
-    fetch_bibtex,
-    replace_bibtex_key,
-    truncate_authors,
-)
+from easybib.api import fetch_bibtex
+from easybib.conversions import replace_bibtex_key, truncate_authors
+from easybib.core import extract_cite_keys, extract_existing_bib_keys
 
 
 def load_config(config_path):

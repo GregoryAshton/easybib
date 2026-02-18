@@ -2,13 +2,12 @@
 
 import pytest
 
+from easybib.conversions import replace_bibtex_key, truncate_authors
 from easybib.core import (
     extract_cite_keys,
     extract_existing_bib_keys,
     is_ads_bibcode,
     is_inspire_key,
-    replace_bibtex_key,
-    truncate_authors,
 )
 
 
