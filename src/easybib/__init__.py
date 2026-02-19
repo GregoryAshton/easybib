@@ -11,6 +11,7 @@ from easybib.api import (
     fetch_bibtex,
     get_ads_bibtex,
     get_inspire_bibtex,
+    get_semantic_scholar_bibtex,
 )
 from easybib.conversions import (
     replace_bibtex_key,
@@ -29,6 +30,7 @@ __all__ = [
     "fetch_bibtex",
     "get_ads_bibtex",
     "get_inspire_bibtex",
+    "get_semantic_scholar_bibtex",
     "is_ads_bibcode",
     "is_inspire_key",
     "replace_bibtex_key",

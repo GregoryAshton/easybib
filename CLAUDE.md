@@ -28,7 +28,7 @@ easybib paper.tex
 The source lives in `src/easybib/` with four modules:
 
 - **core.py** — Parsing and key detection: citation key extraction from `.tex` files (regex-based), existing `.bib` key extraction, and key format detection (INSPIRE vs ADS bibcode). Imports only `re`.
-- **api.py** — API access (network I/O): BibTeX fetching from INSPIRE and NASA/ADS APIs with multi-source fallback chains (ADS→INSPIRE, INSPIRE→ADS, with arXiv as intermediary). Imports `requests` and key detection from `core`.
+- **api.py** — API access (network I/O): BibTeX fetching from INSPIRE, NASA/ADS, and Semantic Scholar APIs with multi-source fallback chains (ADS→INSPIRE→SS, INSPIRE→ADS→SS, SS→INSPIRE→ADS, with arXiv as intermediary). Imports `requests` and key detection from `core`.
 - **conversions.py** — BibTeX string transformations: citation key replacement and author truncation. Imports only `re`.
 - **cli.py** — Argument parsing with two-pass config loading (first pass extracts `--config` path, second pass applies config file defaults before CLI flags), `.tex` file discovery, incremental update logic (skips keys already in existing `.bib`), and orchestration of the fetch loop.
 

@@ -1,4 +1,4 @@
-"""API access functions for fetching BibTeX from INSPIRE and ADS."""
+"""API access functions for fetching BibTeX from INSPIRE, ADS, and Semantic Scholar."""
 
 import requests
 
@@ -77,8 +77,90 @@ def get_ads_bibtex(bibcode, api_key):
     return None
 
 
-def fetch_bibtex_ads_preferred(key, api_key):
-    """Fetch BibTeX preferring ADS, with INSPIRE as fallback."""
+def get_arxiv_id_from_inspire(key):
+    """Fetch arXiv ID from INSPIRE for a given INSPIRE key.
+
+    Returns the arXiv ID string, or None.
+    """
+    _, arxiv_id = get_ads_info_from_inspire(key)
+    return arxiv_id
+
+
+def get_semantic_scholar_bibtex(key, api_key=None):
+    """Fetch BibTeX from Semantic Scholar for a given key.
+
+    Tries the key as an arXiv ID (ARXIV:{key}) first, then falls back to
+    title search. Returns BibTeX string or None.
+    """
+    headers = {}
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    # Try as arXiv ID
+    url = f"https://api.semanticscholar.org/graph/v1/paper/ARXIV:{key}?fields=citationStyles"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        bibtex = data.get("citationStyles", {}).get("bibtex")
+        if bibtex and bibtex.strip():
+            return bibtex.strip()
+
+    # Try key directly (could be a DOI or Semantic Scholar ID)
+    url = f"https://api.semanticscholar.org/graph/v1/paper/{key}?fields=citationStyles"
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        bibtex = data.get("citationStyles", {}).get("bibtex")
+        if bibtex and bibtex.strip():
+            return bibtex.strip()
+
+    return None
+
+
+def fetch_bibtex_semantic_scholar_preferred(key, api_key, ss_api_key):
+    """Fetch BibTeX preferring Semantic Scholar, with INSPIRE/ADS fallback."""
+    # Try Semantic Scholar directly
+    bibtex = get_semantic_scholar_bibtex(key, ss_api_key)
+    if bibtex:
+        return bibtex, "Semantic Scholar (direct)"
+
+    # Try to get arXiv ID from INSPIRE, then try Semantic Scholar with it
+    arxiv_id = get_arxiv_id_from_inspire(key)
+    if arxiv_id:
+        bibtex = get_semantic_scholar_bibtex(arxiv_id, ss_api_key)
+        if bibtex:
+            return bibtex, f"Semantic Scholar via arXiv ({arxiv_id})"
+
+    # Fall back to INSPIRE
+    bibtex = get_inspire_bibtex(key)
+    if bibtex:
+        return bibtex, "INSPIRE (fallback)"
+
+    # Fall back to ADS
+    if api_key:
+        if is_ads_bibcode(key):
+            bibtex = get_ads_bibtex(key, api_key)
+            if bibtex:
+                return bibtex, "ADS (fallback, direct)"
+
+        ads_bibcode, arxiv_id2 = get_ads_info_from_inspire(key)
+        if ads_bibcode:
+            bibtex = get_ads_bibtex(ads_bibcode, api_key)
+            if bibtex:
+                return bibtex, "ADS (fallback, via INSPIRE)"
+
+        if arxiv_id2:
+            ads_bibcode = search_ads_by_arxiv(arxiv_id2, api_key)
+            if ads_bibcode:
+                bibtex = get_ads_bibtex(ads_bibcode, api_key)
+                if bibtex:
+                    return bibtex, "ADS (fallback, via arXiv)"
+
+    return None, None
+
+
+def fetch_bibtex_ads_preferred(key, api_key, ss_api_key=None):
+    """Fetch BibTeX preferring ADS, with INSPIRE and Semantic Scholar as fallback."""
     # First check if it's already an ADS bibcode
     if is_ads_bibcode(key):
         bibtex = get_ads_bibtex(key, api_key)
@@ -107,16 +189,25 @@ def fetch_bibtex_ads_preferred(key, api_key):
     if bibtex:
         return bibtex, "ADS (direct fallback)"
 
-    # Final fallback: fetch BibTeX directly from INSPIRE
+    # Fallback: fetch BibTeX directly from INSPIRE
     bibtex = get_inspire_bibtex(key)
     if bibtex:
         return bibtex, "INSPIRE (fallback)"
 
+    # Final fallback: try Semantic Scholar
+    bibtex = get_semantic_scholar_bibtex(key, ss_api_key)
+    if bibtex:
+        return bibtex, "Semantic Scholar (fallback)"
+    if arxiv_id:
+        bibtex = get_semantic_scholar_bibtex(arxiv_id, ss_api_key)
+        if bibtex:
+            return bibtex, "Semantic Scholar (fallback, via arXiv)"
+
     return None, None
 
 
-def fetch_bibtex_inspire_preferred(key, api_key):
-    """Fetch BibTeX preferring INSPIRE, with ADS as fallback."""
+def fetch_bibtex_inspire_preferred(key, api_key, ss_api_key=None):
+    """Fetch BibTeX preferring INSPIRE, with ADS and Semantic Scholar as fallback."""
     # Try INSPIRE first
     bibtex = get_inspire_bibtex(key)
     if bibtex:
@@ -142,10 +233,19 @@ def fetch_bibtex_inspire_preferred(key, api_key):
             if bibtex:
                 return bibtex, "ADS (fallback, via arXiv)"
 
+    # Final fallback: try Semantic Scholar
+    bibtex = get_semantic_scholar_bibtex(key, ss_api_key)
+    if bibtex:
+        return bibtex, "Semantic Scholar (fallback)"
+    if arxiv_id:
+        bibtex = get_semantic_scholar_bibtex(arxiv_id, ss_api_key)
+        if bibtex:
+            return bibtex, "Semantic Scholar (fallback, via arXiv)"
+
     return None, None
 
 
-def fetch_bibtex_auto(key, api_key):
+def fetch_bibtex_auto(key, api_key, ss_api_key=None):
     """Fetch BibTeX using the source that matches the key format."""
     if is_ads_bibcode(key):
         # Key looks like ADS bibcode, prefer ADS
@@ -174,16 +274,23 @@ def fetch_bibtex_auto(key, api_key):
                 if bibtex:
                     return bibtex, "ADS (fallback, via arXiv)"
 
+    # Final fallback: try Semantic Scholar
+    bibtex = get_semantic_scholar_bibtex(key, ss_api_key)
+    if bibtex:
+        return bibtex, "Semantic Scholar (fallback)"
+
     return None, None
 
 
-def fetch_bibtex(key, api_key, source="ads"):
+def fetch_bibtex(key, api_key, source="ads", ss_api_key=None):
     """Fetch BibTeX using the specified source preference."""
     if source == "ads":
-        return fetch_bibtex_ads_preferred(key, api_key)
+        return fetch_bibtex_ads_preferred(key, api_key, ss_api_key=ss_api_key)
     elif source == "inspire":
-        return fetch_bibtex_inspire_preferred(key, api_key)
+        return fetch_bibtex_inspire_preferred(key, api_key, ss_api_key=ss_api_key)
     elif source == "auto":
-        return fetch_bibtex_auto(key, api_key)
+        return fetch_bibtex_auto(key, api_key, ss_api_key=ss_api_key)
+    elif source == "semantic-scholar":
+        return fetch_bibtex_semantic_scholar_preferred(key, api_key, ss_api_key)
     else:
-        return fetch_bibtex_ads_preferred(key, api_key)
+        return fetch_bibtex_ads_preferred(key, api_key, ss_api_key=ss_api_key)

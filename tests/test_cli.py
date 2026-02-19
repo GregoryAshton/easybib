@@ -253,6 +253,93 @@ class TestConfigFile:
         assert call_args[0][1] == "config-api-key"
 
 
+class TestSemanticScholarCli:
+    def test_semantic_scholar_source_no_ads_key_ok(self, tmp_path, capsys):
+        """Using --preferred-source semantic-scholar should not require an ADS API key."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "semantic-scholar", "--config", no_config, "-o", str(tmp_path / "out.bib")]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", return_value=(None, None)),
+        ):
+            result = main()
+        # Should not return 1 for missing API key
+        assert result is None
+
+    def test_semantic_scholar_api_key_flag(self, tmp_path):
+        """--semantic-scholar-api-key flag is passed to fetch_bibtex."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "easybib", str(tex),
+                    "--preferred-source", "inspire",
+                    "--semantic-scholar-api-key", "ss-flag-key",
+                    "-o", str(tmp_path / "out.bib"),
+                ],
+            ),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex") as mock_fetch,
+        ):
+            mock_fetch.return_value = (
+                "@article{Author:2020abc,\n  title={Test},\n  author={Doe, J.},\n}",
+                "INSPIRE",
+            )
+            main()
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs.get("ss_api_key") == "ss-flag-key"
+
+    def test_semantic_scholar_api_key_env_var(self, tmp_path):
+        """SEMANTIC_SCHOLAR_API_KEY env var is picked up."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        with (
+            patch(
+                "sys.argv",
+                [
+                    "easybib", str(tex),
+                    "--preferred-source", "inspire",
+                    "-o", str(tmp_path / "out.bib"),
+                ],
+            ),
+            patch.dict("os.environ", {"SEMANTIC_SCHOLAR_API_KEY": "ss-env-key"}, clear=True),
+            patch("easybib.cli.fetch_bibtex") as mock_fetch,
+        ):
+            mock_fetch.return_value = (
+                "@article{Author:2020abc,\n  title={Test},\n  author={Doe, J.},\n}",
+                "INSPIRE",
+            )
+            main()
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs.get("ss_api_key") == "ss-env-key"
+
+    def test_config_semantic_scholar_api_key(self, tmp_path):
+        """semantic-scholar-api-key from config is used."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text("[easybib]\nsemantic-scholar-api-key = ss-cfg-key\npreferred-source = inspire\n")
+        with (
+            patch(
+                "sys.argv",
+                ["easybib", str(tex), "--config", str(cfg), "-o", str(tmp_path / "out.bib")],
+            ),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex") as mock_fetch,
+        ):
+            mock_fetch.return_value = (
+                "@article{Author:2020abc,\n  title={Test},\n  author={Doe, J.},\n}",
+                "INSPIRE",
+            )
+            main()
+        call_kwargs = mock_fetch.call_args[1]
+        assert call_kwargs.get("ss_api_key") == "ss-cfg-key"
+
+
 class TestFileVsDirectory:
     def test_single_file(self, tmp_path, capsys):
         tex = tmp_path / "paper.tex"

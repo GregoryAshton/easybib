@@ -44,9 +44,11 @@ def main():
         config_defaults["preferred_source"] = cfg["preferred-source"]
     if "ads-api-key" in cfg:
         config_defaults["ads_api_key"] = cfg["ads-api-key"]
+    if "semantic-scholar-api-key" in cfg:
+        config_defaults["semantic_scholar_api_key"] = cfg["semantic-scholar-api-key"]
 
     parser = argparse.ArgumentParser(
-        description="Extract citations and download BibTeX from NASA/ADS"
+        description="Extract citations and download BibTeX from NASA/ADS, INSPIRE, and Semantic Scholar"
     )
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
@@ -81,13 +83,17 @@ def main():
     parser.add_argument(
         "-s",
         "--preferred-source",
-        choices=["ads", "inspire", "auto"],
+        choices=["ads", "inspire", "auto", "semantic-scholar"],
         default="ads",
-        help="Preferred BibTeX source: 'ads' (default), 'inspire', or 'auto' (based on key format)",
+        help="Preferred BibTeX source: 'ads' (default), 'inspire', 'auto' (based on key format), or 'semantic-scholar'",
     )
     parser.add_argument(
         "--ads-api-key",
         help="ADS API key (overrides ADS_API_KEY environment variable)",
+    )
+    parser.add_argument(
+        "--semantic-scholar-api-key",
+        help="Semantic Scholar API key (overrides SEMANTIC_SCHOLAR_API_KEY environment variable)",
     )
 
     # Apply config file defaults (CLI flags will still override)
@@ -124,13 +130,16 @@ def main():
             print(key)
         return 0
 
-    # Check for ADS API key (not required if using --preferred-source inspire)
+    # Check for ADS API key (not required if using --preferred-source inspire or semantic-scholar)
     api_key = args.ads_api_key or os.getenv("ADS_API_KEY")
-    if not api_key and args.preferred_source != "inspire":
+    if not api_key and args.preferred_source not in ("inspire", "semantic-scholar"):
         print("Error: ADS_API_KEY environment variable not set")
         print("Get your API key from: https://ui.adsabs.harvard.edu/user/settings/token")
-        print("(Or use --preferred-source inspire to fetch from INSPIRE without an ADS key)")
+        print("(Or use --preferred-source inspire or --preferred-source semantic-scholar to fetch without an ADS key)")
         return 1
+
+    # Check for Semantic Scholar API key (optional — API works without it at lower rate limits)
+    ss_api_key = args.semantic_scholar_api_key or os.getenv("SEMANTIC_SCHOLAR_API_KEY")
 
     # Check for existing bib file and determine which keys to fetch
     output_path = Path(args.output)
@@ -152,7 +161,7 @@ def main():
     not_found = []
     for key in sorted(keys_to_fetch):
         print(f"Fetching {key}...", end=" ")
-        bibtex, source = fetch_bibtex(key, api_key, args.preferred_source)
+        bibtex, source = fetch_bibtex(key, api_key, args.preferred_source, ss_api_key=ss_api_key)
         if bibtex:
             bibtex = replace_bibtex_key(bibtex, key)
             bibtex = truncate_authors(bibtex, args.max_authors)
