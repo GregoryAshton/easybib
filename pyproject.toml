@@ -25,3 +25,8 @@ Repository = "https://github.com/GregoryAshton/easybib"
 
 [project.scripts]
 easybib = "easybib.cli:main"
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that make real network calls to external APIs",
+]

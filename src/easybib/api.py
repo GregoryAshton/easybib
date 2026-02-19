@@ -96,23 +96,20 @@ def get_semantic_scholar_bibtex(key, api_key=None):
     if api_key:
         headers["x-api-key"] = api_key
 
-    # Try as arXiv ID
-    url = f"https://api.semanticscholar.org/graph/v1/paper/ARXIV:{key}?fields=citationStyles"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        data = response.json()
-        bibtex = data.get("citationStyles", {}).get("bibtex")
-        if bibtex and bibtex.strip():
-            return bibtex.strip()
-
-    # Try key directly (could be a DOI or Semantic Scholar ID)
-    url = f"https://api.semanticscholar.org/graph/v1/paper/{key}?fields=citationStyles"
-    response = requests.get(url, headers=headers)
-    if response.status_code == 200:
-        data = response.json()
-        bibtex = data.get("citationStyles", {}).get("bibtex")
-        if bibtex and bibtex.strip():
-            return bibtex.strip()
+    for lookup in [f"ARXIV:{key}", key]:
+        url = f"https://api.semanticscholar.org/graph/v1/paper/{lookup}?fields=citationStyles"
+        response = requests.get(url, headers=headers)
+        if response.status_code == 429:
+            raise requests.exceptions.HTTPError(
+                "Semantic Scholar rate limit exceeded (429). "
+                "Provide a --semantic-scholar-api-key for higher rate limits.",
+                response=response,
+            )
+        if response.status_code == 200:
+            data = response.json()
+            bibtex = data.get("citationStyles", {}).get("bibtex")
+            if bibtex and bibtex.strip():
+                return bibtex.strip()
 
     return None
 
