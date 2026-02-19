@@ -513,6 +513,80 @@ class TestDuplicateDetection:
         assert "@article{Other:2021xyz" in content
 
 
+class TestKeyTypeFlag:
+    def test_key_type_inspire_all_match(self, tmp_path, capsys):
+        """--key-type inspire with all INSPIRE keys should not error."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--key-type", "inspire", "--list-keys", "--config", no_config]),
+        ):
+            result = main()
+        assert result == 0
+
+    def test_key_type_inspire_violation(self, tmp_path, capsys):
+        """--key-type inspire with a non-INSPIRE key should return 1 and print the violation."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{2016PhRvL.116f1102A}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--key-type", "inspire", "--preferred-source", "inspire", "--config", no_config, "-o", str(tmp_path / "out.bib")]),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            result = main()
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "2016PhRvL.116f1102A" in captured.out
+        assert "ads" in captured.out
+
+    def test_key_type_ads_all_match(self, tmp_path, capsys):
+        """--key-type ads with all ADS keys should not error."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{2016PhRvL.116f1102A}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--key-type", "ads", "--list-keys", "--config", no_config]),
+        ):
+            result = main()
+        assert result == 0
+
+    def test_key_type_arxiv_all_match(self, tmp_path, capsys):
+        """--key-type arxiv with all arXiv IDs should not error."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{2508.18080}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--key-type", "arxiv", "--list-keys", "--config", no_config]),
+        ):
+            result = main()
+        assert result == 0
+
+    def test_key_type_from_config(self, tmp_path, capsys):
+        """key-type from config file is enforced."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{2016PhRvL.116f1102A}")
+        cfg = tmp_path / "test.config"
+        cfg.write_text("[easybib]\nkey-type = inspire\npreferred-source = inspire\n")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--config", str(cfg), "-o", str(tmp_path / "out.bib")]),
+            patch.dict("os.environ", {}, clear=True),
+        ):
+            result = main()
+        assert result == 1
+
+    def test_no_key_type_no_enforcement(self, tmp_path, capsys):
+        """Without --key-type, mixed key types are accepted."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{2016PhRvL.116f1102A} \cite{2508.18080}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--list-keys", "--config", no_config]),
+        ):
+            result = main()
+        assert result == 0
+
+
 class TestFileVsDirectory:
     def test_single_file(self, tmp_path, capsys):
         tex = tmp_path / "paper.tex"

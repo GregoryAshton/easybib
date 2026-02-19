@@ -23,6 +23,8 @@ from easybib.conversions import (
     truncate_authors,
 )
 from easybib.core import (
+    check_key_type,
+    detect_key_type,
     extract_cite_keys,
     extract_existing_bib_keys,
     is_ads_bibcode,

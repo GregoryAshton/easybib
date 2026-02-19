@@ -4,6 +4,8 @@ import pytest
 
 from easybib.conversions import extract_bibtex_fields, replace_bibtex_key, truncate_authors
 from easybib.core import (
+    check_key_type,
+    detect_key_type,
     extract_cite_keys,
     extract_existing_bib_keys,
     is_ads_bibcode,
@@ -328,3 +330,58 @@ class TestIsArxivId:
 
     def test_negative_too_many_digits(self):
         assert is_arxiv_id("2508.180800") is False
+
+
+# --- detect_key_type ---
+
+
+class TestDetectKeyType:
+    def test_inspire_key(self):
+        assert detect_key_type("Abbott:2016blz") == "inspire"
+
+    def test_ads_bibcode(self):
+        assert detect_key_type("2016PhRvL.116f1102A") == "ads"
+
+    def test_arxiv_new(self):
+        assert detect_key_type("2508.18080") == "arxiv"
+
+    def test_arxiv_old(self):
+        assert detect_key_type("hep-ph/9905318") == "arxiv"
+
+    def test_unknown(self):
+        assert detect_key_type("nocolon") == "unknown"
+
+
+# --- check_key_type ---
+
+
+class TestCheckKeyType:
+    def test_all_inspire_pass(self):
+        keys = {"Abbott:2016blz", "LIGO-Scientific:2020abc"}
+        assert check_key_type(keys, "inspire") == []
+
+    def test_all_ads_pass(self):
+        keys = {"2016PhRvL.116f1102A", "2020A&A...641A...6P"}
+        assert check_key_type(keys, "ads") == []
+
+    def test_all_arxiv_pass(self):
+        keys = {"2508.18080", "hep-ph/9905318"}
+        assert check_key_type(keys, "arxiv") == []
+
+    def test_violation_returned(self):
+        keys = {"Abbott:2016blz", "2016PhRvL.116f1102A"}
+        violations = check_key_type(keys, "inspire")
+        assert len(violations) == 1
+        key, detected = violations[0]
+        assert key == "2016PhRvL.116f1102A"
+        assert detected == "ads"
+
+    def test_multiple_violations(self):
+        keys = {"Abbott:2016blz", "2016PhRvL.116f1102A", "2508.18080"}
+        violations = check_key_type(keys, "inspire")
+        violation_keys = {k for k, _ in violations}
+        assert violation_keys == {"2016PhRvL.116f1102A", "2508.18080"}
+
+    def test_invalid_allowed_type_raises(self):
+        with pytest.raises(ValueError, match="allowed_type must be one of"):
+            check_key_type({"Abbott:2016blz"}, "doi")

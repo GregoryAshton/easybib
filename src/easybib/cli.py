@@ -10,7 +10,7 @@ import requests
 from easybib import __version__
 from easybib.api import fetch_bibtex, fetch_bibtex_by_arxiv
 from easybib.conversions import replace_bibtex_key, truncate_authors, extract_bibtex_key, extract_bibtex_fields, make_arxiv_crossref_stub
-from easybib.core import extract_cite_keys, extract_existing_bib_keys, is_ads_bibcode, is_arxiv_id
+from easybib.core import check_key_type, extract_cite_keys, extract_existing_bib_keys, is_ads_bibcode, is_arxiv_id
 
 
 def load_config(config_path):
@@ -48,6 +48,8 @@ def main():
         config_defaults["ads_api_key"] = cfg["ads-api-key"]
     if "semantic-scholar-api-key" in cfg:
         config_defaults["semantic_scholar_api_key"] = cfg["semantic-scholar-api-key"]
+    if "key-type" in cfg:
+        config_defaults["key_type"] = cfg["key-type"]
 
     parser = argparse.ArgumentParser(
         description="Extract citations and download BibTeX from NASA/ADS, INSPIRE, and Semantic Scholar"
@@ -97,6 +99,12 @@ def main():
         "--semantic-scholar-api-key",
         help="Semantic Scholar API key (overrides SEMANTIC_SCHOLAR_API_KEY environment variable)",
     )
+    parser.add_argument(
+        "--key-type",
+        choices=["inspire", "ads", "arxiv"],
+        default=None,
+        help="Enforce that all citation keys are of the given type: 'inspire', 'ads', or 'arxiv'",
+    )
 
     # Apply config file defaults (CLI flags will still override)
     if config_defaults:
@@ -131,6 +139,15 @@ def main():
         for key in sorted(all_keys):
             print(key)
         return 0
+
+    # Enforce key type if requested
+    if args.key_type:
+        violations = check_key_type(all_keys, args.key_type)
+        if violations:
+            print(f"Error: --key-type={args.key_type} but {len(violations)} key(s) do not match:")
+            for key, detected in sorted(violations):
+                print(f"  '{key}' (detected as: {detected})")
+            return 1
 
     # Check for ADS API key (not required if using --preferred-source inspire or semantic-scholar)
     api_key = args.ads_api_key or os.getenv("ADS_API_KEY")

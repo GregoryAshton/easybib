@@ -61,3 +61,37 @@ def is_inspire_key(key):
     # INSPIRE keys are typically Author:YYYYxxx where xxx is 2-3 lowercase letters
     inspire_pattern = r"^[A-Za-z][A-Za-z0-9-]+:\d{4}[a-z]{2,3}$"
     return bool(re.match(inspire_pattern, key))
+
+
+def detect_key_type(key):
+    """Detect the type of a citation key.
+
+    Returns 'inspire', 'ads', 'arxiv', or 'unknown'.
+    """
+    if is_inspire_key(key):
+        return "inspire"
+    elif is_ads_bibcode(key):
+        return "ads"
+    elif is_arxiv_id(key):
+        return "arxiv"
+    return "unknown"
+
+
+def check_key_type(keys, allowed_type):
+    """Check that all keys match the allowed type.
+
+    Returns a list of (key, detected_type) tuples for keys that do not match.
+    allowed_type must be one of 'inspire', 'ads', or 'arxiv'.
+    Raises ValueError for an unrecognised allowed_type.
+    """
+    checkers = {
+        "inspire": is_inspire_key,
+        "ads": is_ads_bibcode,
+        "arxiv": is_arxiv_id,
+    }
+    if allowed_type not in checkers:
+        raise ValueError(
+            f"allowed_type must be one of {list(checkers)}, got {allowed_type!r}"
+        )
+    check_fn = checkers[allowed_type]
+    return [(key, detect_key_type(key)) for key in keys if not check_fn(key)]
