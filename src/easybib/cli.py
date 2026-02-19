@@ -8,7 +8,7 @@ from pathlib import Path
 from easybib import __version__
 from easybib.api import fetch_bibtex, fetch_bibtex_by_arxiv
 from easybib.conversions import replace_bibtex_key, truncate_authors, extract_bibtex_key, make_arxiv_crossref_stub
-from easybib.core import extract_cite_keys, extract_existing_bib_keys, is_arxiv_id
+from easybib.core import extract_cite_keys, extract_existing_bib_keys, is_ads_bibcode, is_arxiv_id
 
 
 def load_config(config_path):
@@ -155,6 +155,17 @@ def main():
         keys_to_fetch = all_keys
         if args.fresh and output_path.exists():
             print(f"Starting fresh (ignoring existing {args.output})")
+
+    # Warn if ADS bibcodes are present but no ADS API key is set
+    if not api_key:
+        ads_keys = [k for k in keys_to_fetch if is_ads_bibcode(k)]
+        if ads_keys:
+            print(
+                f"Warning: {len(ads_keys)} ADS bibcode(s) found but no ADS_API_KEY is set. "
+                "These will fall back to Semantic Scholar, which may hit rate limits. "
+                "Set ADS_API_KEY for reliable results."
+            )
+            print()
 
     # Download BibTeX entries
     bibtex_entries = []

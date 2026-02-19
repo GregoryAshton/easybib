@@ -59,6 +59,35 @@ class TestMissingApiKey:
         # Should not return 1 for missing API key
         assert result is None
 
+    def test_ads_bibcode_without_api_key_warns(self, tmp_path, capsys):
+        """ADS bibcodes with no API key should print a rate-limit warning."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{2025ApJ...995L..18A}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config, "-o", str(tmp_path / "out.bib")]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", return_value=(None, None)),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "ADS bibcode" in captured.out
+        assert "ADS_API_KEY" in captured.out
+
+    def test_no_warning_when_api_key_set(self, tmp_path, capsys):
+        """No rate-limit warning when an ADS API key is available."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{2025ApJ...995L..18A}")
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "ads", "--ads-api-key", "mykey", "--config", no_config, "-o", str(tmp_path / "out.bib")]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", return_value=(None, None)),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "ADS bibcode" not in captured.out
+
 
 class TestAdsApiKeyOverride:
     def test_flag_overrides_env(self, tmp_path, capsys):
