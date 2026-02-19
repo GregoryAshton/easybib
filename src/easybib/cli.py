@@ -9,7 +9,7 @@ import requests
 
 from easybib import __version__
 from easybib.api import fetch_bibtex, fetch_bibtex_by_arxiv
-from easybib.conversions import replace_bibtex_key, truncate_authors, extract_bibtex_key, make_arxiv_crossref_stub
+from easybib.conversions import replace_bibtex_key, truncate_authors, extract_bibtex_key, extract_bibtex_fields, make_arxiv_crossref_stub
 from easybib.core import extract_cite_keys, extract_existing_bib_keys, is_ads_bibcode, is_arxiv_id
 
 
@@ -169,6 +169,12 @@ def main():
             )
             print()
 
+    # Track identifiers seen this run to detect duplicate papers
+    seen_source_keys = {}  # source key returned by API -> cite key that claimed it
+    seen_eprints = {}      # arXiv eprint ID -> cite key
+    seen_dois = {}         # DOI -> cite key
+    duplicates = []        # (new_key, existing_key, reason)
+
     # Download BibTeX entries
     bibtex_entries = []
     not_found = []
@@ -177,26 +183,52 @@ def main():
         try:
             if is_arxiv_id(key):
                 bibtex, source = fetch_bibtex_by_arxiv(key, api_key, args.preferred_source, ss_api_key=ss_api_key)
-                if bibtex:
-                    bibtex = truncate_authors(bibtex, args.max_authors)
-                    natural_key = extract_bibtex_key(bibtex)
-                    bibtex_entries.append(bibtex)
-                    if natural_key:
-                        bibtex_entries.append(make_arxiv_crossref_stub(key, natural_key))
-                    print(f"\u2713 {source}")
-                else:
-                    not_found.append(key)
-                    print("\u2717 Not found")
             else:
                 bibtex, source = fetch_bibtex(key, api_key, args.preferred_source, ss_api_key=ss_api_key)
-                if bibtex:
-                    bibtex = replace_bibtex_key(bibtex, key)
-                    bibtex = truncate_authors(bibtex, args.max_authors)
-                    bibtex_entries.append(bibtex)
-                    print(f"\u2713 {source}")
+
+            if bibtex:
+                source_key = extract_bibtex_key(bibtex)
+                fields = extract_bibtex_fields(bibtex, "eprint", "doi")
+                eprint = fields.get("eprint")
+                doi = fields.get("doi")
+
+                # Check whether this paper has already been fetched under another key
+                dup_of = None
+                dup_reason = None
+                if source_key and source_key in seen_source_keys:
+                    dup_of = seen_source_keys[source_key]
+                    dup_reason = f"source key '{source_key}'"
+                elif eprint and eprint in seen_eprints:
+                    dup_of = seen_eprints[eprint]
+                    dup_reason = f"arXiv ID '{eprint}'"
+                elif doi and doi in seen_dois:
+                    dup_of = seen_dois[doi]
+                    dup_reason = f"DOI '{doi}'"
+
+                if dup_of:
+                    duplicates.append((key, dup_of, dup_reason))
+                    print(f"\u26a0 Duplicate of '{dup_of}' ({dup_reason}), skipping")
                 else:
-                    not_found.append(key)
-                    print("\u2717 Not found")
+                    if source_key:
+                        seen_source_keys[source_key] = key
+                    if eprint:
+                        seen_eprints[eprint] = key
+                    if doi:
+                        seen_dois[doi] = key
+
+                    if is_arxiv_id(key):
+                        bibtex = truncate_authors(bibtex, args.max_authors)
+                        bibtex_entries.append(bibtex)
+                        if source_key:
+                            bibtex_entries.append(make_arxiv_crossref_stub(key, source_key))
+                    else:
+                        bibtex = replace_bibtex_key(bibtex, key)
+                        bibtex = truncate_authors(bibtex, args.max_authors)
+                        bibtex_entries.append(bibtex)
+                    print(f"\u2713 {source}")
+            else:
+                not_found.append(key)
+                print("\u2717 Not found")
         except requests.exceptions.HTTPError as e:
             not_found.append(key)
             print(f"\u2717 {e}")
@@ -216,3 +248,9 @@ def main():
         print(f"\nCould not find {len(not_found)} keys:")
         for key in not_found:
             print(f"  - {key}")
+
+    if duplicates:
+        print(f"\nWarning: {len(duplicates)} key(s) skipped — they refer to the same paper as an earlier key.")
+        print("Please use a single key per paper in your .tex files:")
+        for new_key, existing_key, reason in duplicates:
+            print(f"  '{new_key}' duplicates '{existing_key}' ({reason})")

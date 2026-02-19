@@ -16,6 +16,7 @@ from easybib.api import (
     get_semantic_scholar_bibtex,
 )
 from easybib.conversions import (
+    extract_bibtex_fields,
     extract_bibtex_key,
     make_arxiv_crossref_stub,
     replace_bibtex_key,
@@ -30,6 +31,7 @@ from easybib.core import (
 )
 
 __all__ = [
+    "extract_bibtex_fields",
     "extract_bibtex_key",
     "extract_cite_keys",
     "extract_existing_bib_keys",

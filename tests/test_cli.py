@@ -427,6 +427,92 @@ class TestArxivIdKey:
         assert "Not found" in captured.out
 
 
+class TestDuplicateDetection:
+    # Two entries with the same source key
+    BIBTEX_NATURAL = "@article{LIGOScientific:2025hdt,\n    eprint = \"2508.18080\",\n    doi = \"10.3847/abc\",\n    author = {Abbott, R.},\n    title = {Test},\n}\n"
+    # Same paper, different source key but same eprint/doi
+    BIBTEX_SAME_EPRINT = "@article{DifferentSourceKey,\n    eprint = \"2508.18080\",\n    doi = \"10.3847/abc\",\n    author = {Abbott, R.},\n    title = {Test},\n}\n"
+    # Same paper again, but different source key and eprint, only DOI matches
+    BIBTEX_SAME_DOI_ONLY = "@article{AnotherSourceKey,\n    eprint = \"9999.99999\",\n    doi = \"10.3847/abc\",\n    author = {Abbott, R.},\n    title = {Test},\n}\n"
+
+    def test_duplicate_by_source_key(self, tmp_path, capsys):
+        """Two keys fetching the same source key: second is skipped with warning."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{2508.18080} \cite{LIGOScientific:2025hdt}")
+        output = tmp_path / "out.bib"
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config, "-o", str(output)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex_by_arxiv", return_value=(self.BIBTEX_NATURAL, "INSPIRE via arXiv")),
+            patch("easybib.cli.fetch_bibtex", return_value=(self.BIBTEX_NATURAL, "INSPIRE")),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "Duplicate" in captured.out
+        assert "LIGOScientific:2025hdt" in captured.out
+        content = output.read_text()
+        assert content.count("@article{LIGOScientific:2025hdt") == 1
+
+    def test_duplicate_by_eprint(self, tmp_path, capsys):
+        """Two entries with the same arXiv eprint but different source keys: second skipped."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{Other:2021xyz}")
+        output = tmp_path / "out.bib"
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config, "-o", str(output)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", side_effect=[
+                (self.BIBTEX_NATURAL, "INSPIRE"),
+                (self.BIBTEX_SAME_EPRINT, "INSPIRE"),
+            ]),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "Duplicate" in captured.out
+        assert "2508.18080" in captured.out
+
+    def test_duplicate_by_doi(self, tmp_path, capsys):
+        """Two entries with matching DOI but different source key and eprint: second skipped."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{Other:2021xyz}")
+        output = tmp_path / "out.bib"
+        no_config = str(tmp_path / "nonexistent.config")
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config, "-o", str(output)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", side_effect=[
+                (self.BIBTEX_NATURAL, "INSPIRE"),
+                (self.BIBTEX_SAME_DOI_ONLY, "INSPIRE"),
+            ]),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "Duplicate" in captured.out
+        assert "10.3847/abc" in captured.out
+
+    def test_no_duplicate_different_papers(self, tmp_path, capsys):
+        """Two genuinely different papers produce no duplicate warning."""
+        tex = tmp_path / "test.tex"
+        tex.write_text(r"\cite{Author:2020abc} \cite{Other:2021xyz}")
+        output = tmp_path / "out.bib"
+        no_config = str(tmp_path / "nonexistent.config")
+        bibtex_a = "@article{KeyA,\n    doi = \"10.1234/aaa\",\n    author = {A},\n    title = {A},\n}\n"
+        bibtex_b = "@article{KeyB,\n    doi = \"10.1234/bbb\",\n    author = {B},\n    title = {B},\n}\n"
+        with (
+            patch("sys.argv", ["easybib", str(tex), "--preferred-source", "inspire", "--config", no_config, "-o", str(output)]),
+            patch.dict("os.environ", {}, clear=True),
+            patch("easybib.cli.fetch_bibtex", side_effect=[(bibtex_a, "INSPIRE"), (bibtex_b, "INSPIRE")]),
+        ):
+            main()
+        captured = capsys.readouterr()
+        assert "Duplicate" not in captured.out
+        content = output.read_text()
+        assert "@article{Author:2020abc" in content
+        assert "@article{Other:2021xyz" in content
+
+
 class TestFileVsDirectory:
     def test_single_file(self, tmp_path, capsys):
         tex = tmp_path / "paper.tex"

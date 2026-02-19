@@ -2,7 +2,7 @@
 
 import pytest
 
-from easybib.conversions import replace_bibtex_key, truncate_authors
+from easybib.conversions import extract_bibtex_fields, replace_bibtex_key, truncate_authors
 from easybib.core import (
     extract_cite_keys,
     extract_existing_bib_keys,
@@ -162,6 +162,47 @@ class TestReplaceBibtexKey:
         result = replace_bibtex_key(bibtex, "2025ApJ...995L..18A")
         assert result.startswith("@article{2025ApJ...995L..18A,")
         assert "title={Test}" in result
+
+
+# --- extract_bibtex_fields ---
+
+INSPIRE_BIBTEX_WITH_FIELDS = (
+    '@article{LIGOScientific:2025hdt,\n'
+    '    author = "Abac, A. G. and others",\n'
+    '    eprint = "2508.18080",\n'
+    '    archivePrefix = "arXiv",\n'
+    '    doi = "10.3847/2041-8213/ae0c06",\n'
+    '    year = "2025"\n'
+    '}\n'
+)
+
+
+class TestExtractBibtexFields:
+    def test_extract_eprint(self):
+        result = extract_bibtex_fields(INSPIRE_BIBTEX_WITH_FIELDS, "eprint")
+        assert result == {"eprint": "2508.18080"}
+
+    def test_extract_doi(self):
+        result = extract_bibtex_fields(INSPIRE_BIBTEX_WITH_FIELDS, "doi")
+        assert result == {"doi": "10.3847/2041-8213/ae0c06"}
+
+    def test_extract_multiple(self):
+        result = extract_bibtex_fields(INSPIRE_BIBTEX_WITH_FIELDS, "eprint", "doi")
+        assert result["eprint"] == "2508.18080"
+        assert result["doi"] == "10.3847/2041-8213/ae0c06"
+
+    def test_missing_field(self):
+        result = extract_bibtex_fields(INSPIRE_BIBTEX_WITH_FIELDS, "isbn")
+        assert result == {}
+
+    def test_brace_delimited_value(self):
+        bibtex = "@article{Key,\n    doi = {10.1234/test},\n}"
+        result = extract_bibtex_fields(bibtex, "doi")
+        assert result == {"doi": "10.1234/test"}
+
+    def test_no_fields_requested(self):
+        result = extract_bibtex_fields(INSPIRE_BIBTEX_WITH_FIELDS)
+        assert result == {}
 
 
 # --- truncate_authors ---

@@ -10,6 +10,21 @@ def replace_bibtex_key(bibtex, new_key):
     return re.sub(pattern, rf"\g<1>{new_key},", bibtex, count=1)
 
 
+def extract_bibtex_fields(bibtex, *field_names):
+    """Extract field values from a BibTeX entry string.
+
+    Returns a dict mapping field name to value for each field found.
+    Handles both double-quoted and brace-delimited values.
+    """
+    result = {}
+    for field in field_names:
+        pattern = rf'^\s*{re.escape(field)}\s*=\s*(?:"([^"]+)"|\{{([^}}]+)\}})'
+        match = re.search(pattern, bibtex, re.MULTILINE | re.IGNORECASE)
+        if match:
+            result[field] = (match.group(1) or match.group(2)).strip()
+    return result
+
+
 def extract_bibtex_key(bibtex):
     """Extract the citation key from a BibTeX entry string."""
     match = re.search(r'@\w+\s*\{\s*([^,\s]+)\s*,', bibtex)
