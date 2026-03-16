@@ -249,6 +249,33 @@ def expand_aas_macros(bibtex, macros):
     return bibtex
 
 
+def remove_collaboration_authors(bibtex):
+    """Remove collaboration entries from the author list in a BibTeX entry.
+
+    Only removes collaboration entries (authors whose name contains 'Collaboration',
+    case-insensitive) if at least one non-collaboration author remains.
+    """
+    author_pattern = r"(\s*author\s*=\s*\{)(.+?)(\},?\s*\n)"
+    match = re.search(author_pattern, bibtex, re.IGNORECASE | re.DOTALL)
+
+    if not match:
+        return bibtex
+
+    prefix = match.group(1)
+    authors_str = match.group(2)
+    suffix = match.group(3)
+
+    authors = [a.strip() for a in re.split(r"\s+and\s+", authors_str)]
+    non_collab = [a for a in authors if not re.search(r'\bcollaboration\b', a, re.IGNORECASE)]
+
+    if not non_collab or len(non_collab) == len(authors):
+        return bibtex
+
+    new_authors_str = " and ".join(non_collab)
+    new_author_field = f"{prefix}{new_authors_str}{suffix}"
+    return bibtex[: match.start()] + new_author_field + bibtex[match.end() :]
+
+
 def truncate_authors(bibtex, max_authors):
     """Truncate the author list in a BibTeX entry to max_authors.
 

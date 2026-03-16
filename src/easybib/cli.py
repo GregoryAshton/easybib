@@ -9,7 +9,7 @@ import requests
 
 from easybib import __version__
 from easybib.api import fetch_bibtex, fetch_bibtex_by_arxiv, fetch_aas_macros_sty
-from easybib.conversions import replace_bibtex_key, truncate_authors, extract_bibtex_key, extract_bibtex_fields, make_arxiv_crossref_stub, parse_aas_macros, find_used_macros, expand_aas_macros, sanitise_unicode
+from easybib.conversions import replace_bibtex_key, truncate_authors, remove_collaboration_authors, extract_bibtex_key, extract_bibtex_fields, make_arxiv_crossref_stub, parse_aas_macros, find_used_macros, expand_aas_macros, sanitise_unicode
 from easybib.core import check_key_type, detect_key_type, extract_cite_keys, extract_existing_bib_keys, load_bib_entries, is_ads_bibcode, is_arxiv_id
 
 
@@ -58,6 +58,8 @@ def main():
         config_defaults["prefer_api"] = cfg["prefer-api"].lower() in ("true", "1", "yes")
     if "ascii" in cfg:
         config_defaults["ascii"] = cfg["ascii"].lower() in ("true", "1", "yes")
+    if "remove-collaborations" in cfg:
+        config_defaults["remove_collaborations"] = cfg["remove-collaborations"].lower() in ("true", "1", "yes")
 
     parser = argparse.ArgumentParser(
         description="Extract citations and download BibTeX from NASA/ADS, INSPIRE, and Semantic Scholar"
@@ -136,6 +138,12 @@ def main():
         action="store_true",
         default=False,
         help="Replace Unicode characters in BibTeX entries with LaTeX/ASCII equivalents and remove any that cannot be converted",
+    )
+    parser.add_argument(
+        "--remove-collaborations",
+        action="store_true",
+        default=False,
+        help="Remove collaboration entries (e.g. 'The LIGO Collaboration') from author lists, provided at least one individual author remains",
     )
 
     # Apply config file defaults (CLI flags will still override)
@@ -241,7 +249,10 @@ def main():
         # Check the local source file first, unless --prefer-api overrides it for API-format keys
         if key in source_entries and not (args.prefer_api and detect_key_type(key) != "unknown"):
             print(f"Fetching {key}...", end=" ")
-            bibtex = truncate_authors(source_entries[key], args.max_authors)
+            bibtex = source_entries[key]
+            if args.remove_collaborations:
+                bibtex = remove_collaboration_authors(bibtex)
+            bibtex = truncate_authors(bibtex, args.max_authors)
             bibtex_entries.append(bibtex)
             print("\u2713 local file")
             continue
@@ -284,12 +295,16 @@ def main():
                         seen_dois[doi] = key
 
                     if is_arxiv_id(key):
+                        if args.remove_collaborations:
+                            bibtex = remove_collaboration_authors(bibtex)
                         bibtex = truncate_authors(bibtex, args.max_authors)
                         bibtex_entries.append(bibtex)
                         if source_key:
                             bibtex_entries.append(make_arxiv_crossref_stub(key, source_key))
                     else:
                         bibtex = replace_bibtex_key(bibtex, key)
+                        if args.remove_collaborations:
+                            bibtex = remove_collaboration_authors(bibtex)
                         bibtex = truncate_authors(bibtex, args.max_authors)
                         bibtex_entries.append(bibtex)
                     print(f"\u2713 {source}")

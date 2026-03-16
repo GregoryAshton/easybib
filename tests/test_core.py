@@ -2,7 +2,7 @@
 
 import pytest
 
-from easybib.conversions import extract_bibtex_fields, replace_bibtex_key, truncate_authors
+from easybib.conversions import extract_bibtex_fields, remove_collaboration_authors, replace_bibtex_key, truncate_authors
 from easybib.core import (
     check_key_type,
     detect_key_type,
@@ -261,6 +261,42 @@ class TestTruncateAuthors:
         )
         result = truncate_authors(bibtex, max_authors=3)
         assert result == bibtex
+
+
+# --- remove_collaboration_authors ---
+
+
+class TestRemoveCollaborationAuthors:
+    def _entry(self, authors):
+        return f"@article{{Key:2020abc,\n  author={{{authors}}},\n  title={{Test}},\n}}\n"
+
+    def test_removes_collaboration_when_individual_authors_present(self):
+        bibtex = self._entry("The LIGO Collaboration and Abbott, B. and Others, A.")
+        result = remove_collaboration_authors(bibtex)
+        assert "Collaboration" not in result
+        assert "Abbott, B." in result
+
+    def test_removes_multiple_collaborations(self):
+        bibtex = self._entry("LIGO Scientific Collaboration and Virgo Collaboration and Abbott, B.")
+        result = remove_collaboration_authors(bibtex)
+        assert "Collaboration" not in result
+        assert "Abbott, B." in result
+
+    def test_no_change_when_only_collaborations(self):
+        bibtex = self._entry("The LIGO Collaboration and Virgo Collaboration")
+        result = remove_collaboration_authors(bibtex)
+        assert result == bibtex
+
+    def test_no_change_when_no_collaborations(self):
+        bibtex = self._entry("Abbott, B. and Others, A.")
+        result = remove_collaboration_authors(bibtex)
+        assert result == bibtex
+
+    def test_case_insensitive(self):
+        bibtex = self._entry("ATLAS collaboration and Smith, J.")
+        result = remove_collaboration_authors(bibtex)
+        assert "collaboration" not in result.lower().split("author")[1].split("}")[0]
+        assert "Smith, J." in result
 
 
 # --- is_ads_bibcode ---
