@@ -2,6 +2,16 @@
 
 All notable changes to easybib are documented here.
 
+## [0.6.0] — 2026-03-17
+
+### Added
+- `--remove-collaborations` flag: strips collaboration author entries (e.g.
+  `The LIGO Scientific Collaboration`) from BibTeX author lists, provided at
+  least one individual author remains. Settable via `remove-collaborations` in
+  the config file.
+
+---
+
 ## [0.5.0] — 2026-02-24
 
 ### Added

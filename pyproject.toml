@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "easybib"
-version = "0.5.0"
+version = "0.6.0"
 description = "Automatically fetch BibTeX entries from INSPIRE and ADS for LaTeX projects"
 readme = "README.md"
 license = "MIT"

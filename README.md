@@ -36,6 +36,7 @@ Pass a directory to scan all `.tex` files recursively, or a single `.tex` file. 
 | `--bib-source` | Existing `.bib` file to copy entries from before falling back to the API |
 | `--prefer-api` | With `--bib-source`, fetch INSPIRE/ADS/arXiv keys from the API even if they exist in the source file |
 | `--ascii` | Replace Unicode characters in BibTeX entries with LaTeX/ASCII equivalents |
+| `--remove-collaborations` | Remove collaboration entries (e.g. `The LIGO Collaboration`) from author lists, provided at least one individual author remains |
 | `--ads-api-key` | ADS API key (overrides `ADS_API_KEY` environment variable) |
 | `--semantic-scholar-api-key` | Semantic Scholar API key (overrides `SEMANTIC_SCHOLAR_API_KEY` environment variable) |
 | `--config` | Path to config file (default: `~/.easybib.config`) |
@@ -213,6 +214,25 @@ You can also enable it permanently in your config file:
 ```ini
 [easybib]
 ascii = true
+```
+
+### Removing collaboration authors
+
+Large experimental collaborations often list a collaboration name as an author entry alongside the individual authors — for example, `The LIGO Scientific Collaboration` appearing in the author list in addition to `Abbott, R.` and others. This can inflate formatted references or trigger errors in some bibliography styles.
+
+Use `--remove-collaborations` to strip these entries from all author lists:
+
+```bash
+easybib paper.tex --remove-collaborations
+```
+
+Any author entry matching common collaboration patterns (e.g. `The ... Collaboration`, `... Team`, `... Consortium`) is removed. The flag only removes a collaboration entry if at least one individual author remains; if the collaboration is the sole author, it is kept.
+
+You can also enable this permanently in your config file:
+
+```ini
+[easybib]
+remove-collaborations = true
 ```
 
 ### Duplicate detection
