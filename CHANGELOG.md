@@ -2,6 +2,16 @@
 
 All notable changes to easybib are documented here.
 
+## [0.7.0] — 2026-04-17
+
+### Added
+- `--refresh-only` flag: re-fetches and updates only entries that already exist
+  in the output `.bib` file. Citation keys found in `.tex` files but not present
+  in the `.bib` file are silently skipped. Useful for refreshing existing
+  references with the latest data without adding new entries.
+
+---
+
 ## [0.6.0] — 2026-03-17
 
 ### Added
