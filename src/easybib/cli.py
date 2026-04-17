@@ -95,6 +95,13 @@ def main():
         help="Start from scratch, ignoring existing output file",
     )
     parser.add_argument(
+        "--refresh-only",
+        action="store_true",
+        default=False,
+        help="Only re-fetch and update entries that already exist in the output .bib file. "
+             "Keys not already present are ignored.",
+    )
+    parser.add_argument(
         "-s",
         "--preferred-source",
         choices=["ads", "inspire", "auto", "semantic-scholar"],
@@ -213,7 +220,17 @@ def main():
     # Check for existing bib file and determine which keys to fetch
     output_path = Path(args.output)
     existing_content = ""
-    if not args.fresh and output_path.exists():
+    existing_entries = {}
+    if args.refresh_only:
+        if output_path.exists():
+            existing_entries = load_bib_entries(output_path)
+            existing_keys = set(existing_entries.keys())
+            keys_to_fetch = all_keys & existing_keys
+            print(f"Refresh-only mode: {len(keys_to_fetch)} existing entries will be re-fetched")
+        else:
+            keys_to_fetch = set()
+            print("Refresh-only mode: no existing .bib file found, nothing to refresh")
+    elif not args.fresh and output_path.exists():
         existing_keys = extract_existing_bib_keys(output_path)
         keys_to_fetch = all_keys - existing_keys
         with open(output_path, "r", encoding="utf-8") as f:
@@ -316,7 +333,14 @@ def main():
             print(f"\u2717 {e}")
 
     # Build the full BibTeX content (existing + new)
-    if existing_content and bibtex_entries:
+    if args.refresh_only:
+        # For refresh-only mode, overwrite refreshed entries in the existing dict
+        for entry_text in bibtex_entries:
+            key = extract_bibtex_key(entry_text)
+            if key:
+                existing_entries[key] = entry_text
+        full_bibtex = "\n\n".join(existing_entries.values())
+    elif existing_content and bibtex_entries:
         full_bibtex = existing_content + "\n\n" + "\n\n".join(bibtex_entries)
     elif existing_content:
         full_bibtex = existing_content
